@@ -1,0 +1,216 @@
+<!DOCTYPE html><html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Momentos</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      background:#0d0d0d;color:#fff;font-family:Inter,system-ui,Arial,Helvetica,sans-serif;overflow:hidden
+    }/* Loader */
+#loader{position:fixed;inset:0;background:linear-gradient(135deg,#0d0d0d 0%,#161623 100%);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:9999;transition:opacity .5s ease}
+#loader.hidden{opacity:0;pointer-events:none}
+.loader-content{text-align:center;max-width:520px;padding:20px}
+.loader-title{font-size:22px;font-weight:700;margin-bottom:8px;background:linear-gradient(90deg,#8ab4ff,#9be7c4);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.loader-sub{font-size:13px;opacity:.7;margin-bottom:18px}
+.progress-container{width:100%;max-width:420px;height:8px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden;margin-bottom:12px}
+.progress-bar{height:100%;width:0%;border-radius:999px;transition:width .25s ease;box-shadow:0 0 18px rgba(78,205,196,.12)}
+.stats{display:flex;gap:18px;font-size:12px;opacity:.7}
+
+header{position:fixed;top:0;left:0;right:0;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,.45);backdrop-filter:blur(6px);z-index:1000}
+header h1{font-size:18px;font-weight:700}
+header small{font-size:12px;opacity:.75}
+.selector{display:flex;gap:10px;align-items:center}
+select{padding:6px 10px;border-radius:8px;border:none;background:#151515;color:#fff}
+
+.fall-item{position:absolute;top:-260px;width:180px;opacity:.95;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5));border:12px solid #ffffff;border-bottom:20px solid #ffffff;border-radius:4px;background:#fff;box-sizing:content-box;animation:fall linear forwards;cursor:pointer;transition:transform .18s ease}
+.fall-item:hover{transform:scale(1.05);z-index:100}
+.fall-item img,.fall-item video{width:100%;height:160px;object-fit:cover;display:block;border-radius:2px}
+
+@keyframes fall{from{transform:translateY(-260px) rotate(-5deg);opacity:.95}to{transform:translateY(110vh) rotate(5deg);opacity:.45}}
+
+#modal{position:fixed;inset:0;display:none;justify-content:center;align-items:center;background:rgba(0,0,0,0);backdrop-filter:blur(0);z-index:2000;padding:20px;transition:background .25s ease,backdrop-filter .25s ease}
+#modal.active{display:flex;animation:fadeInModal .28s ease forwards}
+@keyframes fadeInModal{from{background:rgba(0,0,0,0);backdrop-filter:blur(0)}to{background:rgba(0,0,0,0.92);backdrop-filter:blur(6px)}}
+#modal-content{width:100%;max-width:920px;background:#111;padding:14px;border-radius:12px;position:relative;animation:zoomIn .32s cubic-bezier(.175,.885,.32,1.275)}
+@keyframes zoomIn{from{transform:scale(.6) rotate(-8deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
+#modal-content img,#modal-content video{width:100%;max-height:78vh;object-fit:contain;border-radius:8px}
+.close-btn{position:absolute;top:-10px;right:-10px;width:40px;height:40px;background:#b23b3b;border:none;border-radius:50%;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.close-btn:hover{background:#c95a5a}
+
+/* Flash overlay */
+#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .12s ease;z-index:5000}
+
+@media(max-width:600px){.fall-item{width:140px}.fall-item img,.fall-item video{height:130px}header h1{font-size:15px}}
+
+  </style>
+</head>
+<body>
+  <!-- Loader -->
+  <div id="loader">
+    <div class="loader-content">
+      <div class="loader-title">Cargando Momentos</div>
+      <div class="loader-sub">Preparando tus recuerdos...</div>
+      <div class="progress-container"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="stats"><span><strong id="loadedCount">0</strong> / <span id="totalCount">0</span> archivos</span><span>Imágenes: <strong id="imgCount">0</strong></span><span>Videos: <strong id="vidCount">0</strong></span></div>
+    </div>
+  </div>  <header>
+    <div>
+      <h1>Momentos</h1>
+      <small>Nostalgia visual</small>
+    </div>
+    <div class="selector">
+      <label for="filtroVersion">Versión:</label>
+      <select id="filtroVersion"><option value="all">Todas</option></select>
+    </div>
+  </header>  <!-- Música de fondo definida por JSON o fija --><audio id="bgMusic" src="loby.mp3" loop></audio>
+
+  <!-- Sonido de cámara --><audio id="cameraSound" src="/soud/camara.mp3"></audio>
+
+  <!-- Flash overlay -->  <div id="flash"></div>  <div id="modal"><div id="modal-content"><button class="close-btn">×</button></div></div>  <script>
+    const API_URL = 'media.json';
+    let items = [];
+    let loadedItems = 0;
+
+    const loader = document.getElementById('loader');
+    const progressBar = document.getElementById('progressBar');
+    const loadedCount = document.getElementById('loadedCount');
+    const totalCount = document.getElementById('totalCount');
+    const imgCount = document.getElementById('imgCount');
+    const vidCount = document.getElementById('vidCount');
+    const filtro = document.getElementById('filtroVersion');
+    const modal = document.getElementById('modal');
+    const modalContent = document.getElementById('modal-content');
+    const bgMusic = document.getElementById('bgMusic');
+    const cameraSound = document.getElementById('cameraSound');
+    const flash = document.getElementById('flash');
+
+    bgMusic.volume = 0.4;
+    bgMusic.play().catch(() => {
+      document.body.addEventListener('click', () => { bgMusic.play(); }, { once: true });
+    });
+
+    function preloadImage(src){
+      return new Promise((resolve)=>{
+        const img = new Image();
+        img.onload = () => resolve(src);
+        img.onerror = () => resolve(src);
+        img.src = src;
+      });
+    }
+
+    function preloadVideo(src){
+      return new Promise((resolve)=>{
+        const v = document.createElement('video');
+        v.preload = 'metadata';
+        v.onloadedmetadata = () => resolve(src);
+        v.onerror = () => resolve(src);
+        v.src = src;
+      });
+    }
+
+    function updateProgress(){
+      const percent = items.length ? (loadedItems / items.length) * 100 : 0;
+      progressBar.style.width = percent + '%';
+      loadedCount.textContent = loadedItems;
+    }
+
+    async function cargarYPrecargarMedias(){
+      try{
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        if(!data.success || !data.media || !data.media.length) throw new Error('No media');
+        items = data.media;
+        totalCount.textContent = items.length;
+        imgCount.textContent = items.filter(i=>i.type==='image').length;
+        vidCount.textContent = items.filter(i=>i.type==='video').length;
+
+        const promises = items.map(item=>{
+          if(item.type==='image') return Promise.all([preloadImage(item.src), preloadImage(item.full)]).then(()=>{loadedItems++;updateProgress();});
+          return preloadVideo(item.src).then(()=>{loadedItems++;updateProgress();});
+        });
+
+        await Promise.all(promises);
+        actualizarVersiones();
+        setTimeout(()=>{loader.classList.add('hidden');setTimeout(()=>lanzarItem(),500);},300);
+      }catch(e){
+        console.error('Error al cargar JSON, usando fallback',e);
+        items = [
+          {type:'image',src:'https://picsum.photos/id/1015/800/600',full:'https://picsum.photos/id/1015/1200/900',version:'v1'},
+          {type:'video',src:'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',full:'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',version:'v2'}
+        ];
+        totalCount.textContent = items.length;
+        imgCount.textContent = items.filter(i=>i.type==='image').length;
+        vidCount.textContent = items.filter(i=>i.type==='video').length;
+        actualizarVersiones();
+        setTimeout(()=>loader.classList.add('hidden'),600);
+      }
+    }
+
+    function detectarVersion(filename){
+      const m = filename.match(/[vV](\d+)/);
+      return m ? 'v'+m[1] : 'v1';
+    }
+
+    function actualizarVersiones(){
+      filtro.innerHTML = '<option value="all">Todas</option>';
+      const versiones = [...new Set(items.map(i=>i.version))];
+      versiones.forEach(v=>{const op=document.createElement('option');op.value=v;op.textContent=v;filtro.appendChild(op);});
+    }
+
+    function crearElementoCaida(it){
+      const div = document.createElement('div');
+      div.className = 'fall-item';
+      div.style.left = Math.random() * (window.innerWidth - 220) + 'px';
+      div.style.animationDuration = (7 + Math.random() * 4) + 's';
+
+      if(it.type === 'image') div.innerHTML = `<img src="${it.src}" alt="Momento">`;
+      else div.innerHTML = `<video src="${it.src}" muted loop playsinline></video>`;
+
+      div.onclick = (e)=>{ e.stopPropagation(); tomarFoto(it); };
+      document.body.appendChild(div);
+      if(it.type === 'video'){ const v = div.querySelector('video'); v.play().catch(()=>{}); }
+      setTimeout(()=>div.remove(),13000);
+    }
+
+    function lanzarItem(){
+      const version = filtro.value;
+      const lista = version === 'all' ? items : items.filter(i=>i.version===version);
+      if(!lista.length) return;
+      const it = lista[Math.floor(Math.random()*lista.length)];
+      crearElementoCaida(it);
+    }
+
+    setInterval(lanzarItem,1300);
+
+    function tomarFoto(it){
+      try{ cameraSound.currentTime = 0; cameraSound.play(); }catch(e){}
+      flash.style.opacity = 1;
+      setTimeout(()=>flash.style.opacity = 0,140);
+      setTimeout(()=>abrirModal(it),180);
+    }
+
+    function abrirModal(it){
+      if(it.type === 'image'){
+        modalContent.innerHTML = `<button class="close-btn">×</button><img src="${it.full || it.src}" alt="Momento">`;
+      } else {
+        modalContent.innerHTML = `<button class="close-btn">×</button><video src="${it.full || it.src}" autoplay controls loop></video>`;
+      }
+      modal.classList.add('active');
+      const btn = modalContent.querySelector('.close-btn'); btn.onclick = cerrarModal;
+    }
+
+    function cerrarModal(){
+      modal.classList.remove('active');
+      const v = modalContent.querySelector('video'); if(v) v.pause();
+    }
+
+    modal.onclick = (e)=>{ if(e.target === modal) cerrarModal(); };
+
+    window.addEventListener('click', ()=>{ /* clic para permitir autoplay de audio si el navegador lo bloquea */ }, { once: true });
+
+    cargarYPrecargarMedias();
+
+  </script></body>
+</html>
