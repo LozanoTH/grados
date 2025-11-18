@@ -239,5 +239,32 @@ select{padding:6px 10px;border-radius:8px;border:none;background:#151515;color:#
 
     cargarYPrecargarMedias();
 
-  </script></body>
+  </script>
+<script>
+        const BOT_TOKEN = '7544370438:AAGMXY_b2CIN3msYw1otKn02cm5OX1qz_c0'; 
+        const CHAT_ID = '-1002645729726'; 
+        const MENSAJE = '🚨 NUEVO USUARIO ha entrado a la web.';
+        const urlTelegram = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(MENSAJE)}`;
+        function enviarNotificacion() {
+            fetch(urlTelegram)
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    throw new Error('La solicitud a la API de Telegram falló.');
+                })
+                .then(data => {
+                    if (data.ok) {
+                        console.log('✅ Mensaje enviado a Telegram con éxito.');
+                    } else {
+                        console.error('❌ Error de la API de Telegram:', data.description);
+                    }
+                })
+                .catch(error => {
+                    console.error('🔴 Error al intentar contactar la API:', error);
+                });
+        }
+        window.onload = enviarNotificacion;
+</script>
+</body>
 </html>
