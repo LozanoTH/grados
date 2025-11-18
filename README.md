@@ -1,6 +1,11 @@
 # the end of a story
 
 
+<audio controls>
+  <source src="https://github.com/LozanoTH/grados/raw/refs/heads/master/loby.mp3" type="audio/mpeg">
+  Tu navegador no soporta el elemento de audio.
+</audio>
+
 ---
 
 Carta de Despedida – Grado 11
